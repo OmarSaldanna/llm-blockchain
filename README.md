@@ -1,127 +1,186 @@
-# ⚙️ LLM Prompt Processing Queue
+# 🔗 Sistema de Procesamiento de Prompts LLM con Trazabilidad Blockchain
 
-Este proyecto implementa un sistema de cola (queue) para procesar prompts de manera asíncrona utilizando un modelo de lenguaje grande (LLM) auto-alojado y una base de datos PostgreSQL.
+Este proyecto implementa una arquitectura híbrida que combina una **API REST**, un **Worker Asíncrono** y un **Ledger Inmutable (Blockchain Centralizada)** para gestionar, procesar y auditar peticiones a Modelos de Lenguaje Grande (LLM).
 
-El sistema está diseñado para ejecutarse en un servidor durante la noche, procesando una lista de trabajos pendientes uno por uno, registrando los resultados, el uso de tokens y el tiempo de ejecución.
+El sistema permite a los usuarios enviar prompts, descontar "créditos" (tokens) de su saldo, y garantiza que cada transacción y respuesta quede registrada en una cadena de bloques criptográficamente vinculada, asegurando la integridad histórica de los datos.
 
----
+-----
 
-## 🚀 ¿Cómo Funciona?
+## 🛡️ Justificación Técnica: Blockchain e Integridad de Datos
 
-El flujo de trabajo es sencillo pero robusto:
+Este sistema trasciende una base de datos tradicional mediante la implementación de una **Blockchain Centralizada** (`blockchain.json`) para el registro de transacciones. A diferencia de un log convencional, esta estructura garantiza la **inmutabilidad** y la **coherencia temporal** de las interacciones usuario-sistema.
 
-1.  **Agendar un Trabajo**: Un usuario o sistema externo inserta un nuevo registro en la tabla `fila_llm_anahuac` en la base de datos PostgreSQL. Solo necesita proporcionar el `prompt`; el `estatus` se establece por defecto en `'pendiente'`.
+### ¿Cómo asegura este método las transacciones y prompts?
 
-2.  **Ejecución Programada**: Un `cron job` en el servidor activa el script principal `queue.sh` a una hora predefinida (ej. 1:00 AM cada día).
+1.  **Inmutabilidad Criptográfica (SHA-256):**
+    Cada lote de prompts procesados ("bloque") contiene un hash único calculado a partir de su contenido y, crucialmente, incluye el **`hash_anterior`** del bloque precedente.
 
-3.  **Bucle de Procesamiento**: El script `queue.sh` inicia un bucle que ejecuta `job.py` repetidamente. Este bucle tiene dos condiciones de parada:
-    * La hora actual alcanza las 6:00 AM.
-    * El script `job.py` crea un archivo temporal `empty_queue.tmp`, indicando que ya no hay más prompts pendientes.
+      * *Mecanismo:* $Hash_{bloque} = SHA256(Datos + Timestamp + Hash_{anterior})$
+      * *Seguridad:* Si un actor malintencionado intentara modificar un prompt o un saldo en un bloque pasado (ej. Bloque 5), el hash de ese bloque cambiaría. Como el Bloque 6 contiene el hash original del Bloque 5, la cadena se rompería, evidenciando inmediatamente la manipulación.
 
-4.  **Procesamiento del Prompt**: En cada ejecución, `job.py` realiza las siguientes acciones:
-    * Se conecta a la base de datos y selecciona el prompt pendiente más antiguo.
-    * Envía el prompt a la API del LLM.
-    * Mide el tiempo de respuesta.
-    * Al recibir la respuesta, cuenta los tokens de entrada (`prompt`) y de salida (`respuesta`) utilizando `tiktoken`.
-    * Actualiza el registro en la base de datos con la respuesta, los conteos de tokens, el tiempo de ejecución y cambia el `estatus` a `'listo'`.
-    * Si ocurre un error, actualiza el `estatus` a `'error'`.
+2.  **Línea de Tiempo Unificada (Timestamping):**
+    La blockchain actúa como la "fuente de la verdad" cronológica. Al serializar las transacciones en bloques secuenciales, se crea una línea de tiempo canónica que impide la reordenación de eventos o la inserción de transacciones retroactivas ("double-spending" de tokens).
 
-5.  **Limpieza**: Una vez que el bucle en `queue.sh` termina, elimina el archivo `empty_queue.tmp` para asegurar que la ejecución del día siguiente comience correctamente.
+3.  **Auditabilidad y Cumplimiento (Compliance):**
+    El sistema permite auditar el uso de la IA. Al registrar indeleblemente el `prompt` (entrada) y la `respuesta` (salida) junto con el costo en tokens, se asegura que los usuarios cumplan con las políticas de uso. Cualquier intento de negar haber enviado un prompt específico es refutado por la firma criptográfica del bloque correspondiente.
 
----
+4.  **Consistencia de Saldos (State Integrity):**
+    El saldo de tokens de los usuarios no es solo un número en una base de datos mutable, sino el resultado de la suma histórica de transacciones registradas en la blockchain. Esto previene errores de contabilidad y asegura que el consumo de recursos (API del LLM) esté perfectamente correlacionado con el gasto de los usuarios.
 
-## 📂 Estructura del Proyecto
+-----
 
+## 📂 Arquitectura del Proyecto
+
+### 1\. `api.py` (La Puerta de Enlace)
+
+Servidor Flask que actúa como la interfaz pública del sistema.
+
+  * **Función:** Autentica usuarios mediante API Keys, valida saldos y encola peticiones en PostgreSQL. No procesa la IA directamente, garantizando alta disponibilidad y baja latencia.
+
+### 2\. `job.py` (El Minero y Worker)
+
+El núcleo operativo del sistema. Ejecutado periódicamente (batch processing), realiza las siguientes tareas críticas:
+
+1.  **Fetch:** Recupera prompts pendientes de la base de datos (FIFO).
+2.  **Procesamiento:** Envía los prompts al modelo `gpt-5-nano` vía OpenAI.
+3.  **Settlement:** Calcula el costo exacto (tokens in + tokens out) y actualiza el saldo del usuario (Atomic Transaction).
+4.  **Mining:** Agrupa todas las transacciones exitosas, calcula el hash criptográfico vinculando el bloque anterior y escribe el nuevo bloque en `blockchain.json`.
+
+### 3\. `modules.py` (Librería de Utilidades)
+
+Contiene la lógica compartida y modularizada:
+
+  * Conexión segura a PostgreSQL (`psycopg2`).
+  * Integración con APIs de LLM (`get_openai_response`).
+  * Funciones criptográficas para cálculo de SHA-256 (`calculate_hash`).
+  * Gestión de lectura/escritura del Ledger (`blockchain.json`).
+
+### 4\. `client.py` (Cliente de Usuario)
+
+Interfaz de línea de comandos (CLI) para interactuar con el sistema. Permite a los usuarios enviar prompts y consultar su historial de transacciones de forma amigable.
+
+-----
+
+## 📡 Documentación de la API
+
+### 1\. Enviar Prompt
+
+Añade una solicitud a la cola de procesamiento.
+
+  * **Endpoint:** `POST /submit`
+  * **Body:**
+    ```json
+    {
+      "api_key": "tu_api_key_sha256",
+      "prompt": "Explica la teoría de la relatividad."
+    }
+    ```
+  * **Respuesta (201 Created):**
+    ```json
+    {
+      "message": "Prompt encolado exitosamente",
+      "job_id": 42,
+      "tokens_estimados": 15
+    }
+    ```
+
+### 2\. Consultar Historial
+
+Obtiene las últimas transacciones procesadas y registradas en la blockchain para un usuario.
+
+  * **Endpoint:** `GET /history`
+  * **Parámetros:** `?api_key=...&n=5` (donde `n` es el número de registros).
+  * **Respuesta (200 OK):**
+    ```json
+    {
+      "history": [
+        {
+          "prompt": "...",
+          "respuesta": "...",
+          "costo_tokens": 150,
+          "fecha": "2023-10-27 10:00:00"
+        }
+      ]
+    }
+    ```
+
+-----
+
+## 🗄️ Estructura de Base de Datos
+
+El sistema utiliza PostgreSQL para la persistencia de estado volátil (cola) y gestión de identidad.
+
+### Tabla: `usuarios`
+
+Gestiona identidades y saldos. Las API Keys se generan y almacenan como hashes.
+
+| Columna | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | SERIAL (PK) | Identificador único. |
+| `nombre` | VARCHAR | Nombre del usuario. |
+| `api_key` | VARCHAR(64) | Hash SHA-256 de la llave de acceso. |
+| `balance_tokens` | INT | Saldo actual de créditos. |
+
+### Tabla: `fila_llm`
+
+Actúa como *Mempool* (piscina de memoria) para transacciones pendientes antes de ser minadas.
+
+| Columna | Tipo | Descripción |
+| :--- | :--- | :--- |
+| `id` | SERIAL (PK) | Identificador del trabajo. |
+| `usuario_id` | INT (FK) | Referencia al usuario. |
+| `prompt` | TEXT | Entrada de texto. |
+| `estatus` | VARCHAR | `pendiente`, `listo`, `error`. |
+| `tokens_totales` | INT | Costo final de la operación. |
+
+-----
+
+## 🧱 Estructura del Blockchain (`blockchain.json`)
+
+El "libro mayor" del sistema sigue esta estructura JSON estricta:
+
+```json
+{
+  "blockchain": [
+    {
+      "hash": "0000... (Hash del bloque actual)",
+      "hash_anterior": "abcd... (Vínculo criptográfico)",
+      "timestamp": "2023-10-27 12:00:00",
+      "prompts": [
+        {
+          "usuario": 1,
+          "prompt": "Prompt del usuario...",
+          "respuesta": "Respuesta de la IA...",
+          "tokens_gastados": 120,
+          "balance_restante": 9880
+        }
+      ]
+    }
+  ]
+}
 ```
-/tu_proyecto/
-├── venv/                 # Entorno virtual de Python
-├── .env                  # Archivo de configuración con credenciales (¡NO subir a Git!)
-├── .gitignore            # Archivos y carpetas a ignorar por Git
-├── modules.py            # Funciones auxiliares (conexión a DB, llamada al LLM, etc.)
-├── job.py                # Script principal para procesar UN solo prompt
-├── queue.sh              # Script de shell que ejecuta job.py en bucle
-└── queue.log             # (Opcional) Archivo de logs generado por cron
-```
 
----
+-----
 
-## 🗄️ Esquema de la Base de Datos
+## 🛠️ Instalación
 
-La tabla en PostgreSQL que gestiona la cola tiene la siguiente estructura:
+1.  **Clonar repositorio y crear entorno virtual:**
 
-```sql
-CREATE TABLE fila_llm_anahuac (
-    id SERIAL PRIMARY KEY,
-    prompt TEXT NOT NULL,
-    respuesta TEXT,
-    fecha_in TIMESTAMP DEFAULT NOW(),
-    fecha_out TIMESTAMP,
-    tokens_in INT,
-    tokens_out INT,
-    estatus VARCHAR(10) NOT NULL DEFAULT 'pendiente' CHECK (estatus IN ('pendiente', 'listo', 'error')),
-    tiempo_ejecucion NUMERIC(10, 2)
-);
-```
-
----
-
-## 🛠️ Instalación y Configuración
-
-Sigue estos pasos para poner en marcha el sistema:
-
-1.  **Clonar el repositorio** (si aplica) o crear los archivos en tu servidor.
-
-2.  **Crear el Entorno Virtual**:
     ```bash
-    python3 -m venv venv
+    python -m venv venv
     source venv/bin/activate
+    pip install -r requirements.txt
     ```
 
-3.  **Instalar Dependencias**:
-    ```bash
-    pip install psycopg2-binary requests python-dotenv tiktoken
+2.  **Configurar `.env`:**
+
+    ```env
+    DB_NAME=...
+    OPENAI_API_KEY=sk-...
     ```
 
-4.  **Configurar Variables de Entorno**:
-    * Crea un archivo llamado `.env` a partir del archivo `.env.example` o desde cero.
-    * Rellena las credenciales de la base de datos y la configuración de la API del LLM.
+3.  **Ejecución:**
 
-5.  **Dar Permisos de Ejecución**:
-    Asegúrate de que el script de shell sea ejecutable:
-    ```bash
-    chmod +x queue.sh
-    ```
-
-6.  **Configurar el Cron Job**:
-    * Abre el editor de crontab: `crontab -e`
-    * Añade la siguiente línea, **ajustando las rutas** a las de tu proyecto:
-    ```crontab
-    0 1 * * * /ruta/completa/a/tu_proyecto/queue.sh >> /ruta/completa/a/tu_proyecto/queue.log 2>&1
-    ```
-
----
-
-## ▶️ Uso
-
-Para usar el sistema, simplemente inserta un nuevo registro en tu base de datos:
-
-```sql
-INSERT INTO fila_llm_anahuac (prompt) VALUES ('Escribe un poema corto sobre la programación.');
-```
-
-El sistema recogerá y procesará este prompt automáticamente durante el próximo ciclo de ejecución programado.
-
-## 🔑 Archivo .env
-
-```bash
-# --- Configuración de la Base de Datos PostgreSQL ---
-DB_NAME="timeline"
-DB_USER="tu_usuario_de_db"
-DB_PASSWORD="tu_contraseña_de_db"
-DB_HOST="ip_o_host_de_la_db"
-DB_PORT="5432"
-
-# --- Configuración de la API del LLM ---
-LLM_API_URL="http: ...."
-LLM_API_KEY="tu_api_key_secreta"
-```
+      * API: `python api.py`
+      * Worker (Minado): `python job.py`
+      * Cliente: `python client.py`

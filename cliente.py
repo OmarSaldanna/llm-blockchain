@@ -4,10 +4,10 @@ import sys
 
 # --- CONFIGURACIÓN DEL USUARIO ---
 # 1. Pega aquí la API Key que generaste en tu base de datos (tabla usuarios)
-MI_API_KEY = "tu_api_key_generada_en_postgres_aqui"
+MI_API_KEY = "6da6d48703a3c11e05e265facd6bc9e551a4e03494a269a7eb99b9c4b35a9dcb"
 
 # 2. La URL donde está corriendo tu api.py (por defecto localhost:5000)
-BASE_URL = "http://127.0.0.1:5000"
+BASE_URL = "http://127.0.0.1:5001"
 
 # --- Colores para la consola ---
 class Colors:

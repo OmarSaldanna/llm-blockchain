@@ -7,6 +7,7 @@ import hashlib
 import urllib3
 from datetime import datetime
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Deshabilitar advertencias de SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -106,3 +107,30 @@ def calculate_hash(block_data):
     """Calcula el SHA256 de un bloque (diccionario)."""
     block_string = json.dumps(block_data, sort_keys=True).encode()
     return hashlib.sha256(block_string).hexdigest()
+
+
+def get_openai_response(prompt):
+    """
+    Envía un prompt a la API de OpenAI usando el modelo especificado (gpt-5-nano).
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        print(f"{Colors.RED}Error: OPENAI_API_KEY no encontrada en variables de entorno.{Colors.END}")
+        return None
+
+    client = OpenAI(api_key=api_key)
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-5-nano",
+            messages=[
+                {"role": "system", "content": "You are a helpful and concise assistant."},
+                {"role": "user", "content": prompt}
+            ],
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"{Colors.RED}Error al conectar con OpenAI: {e}{Colors.END}")
+        return None

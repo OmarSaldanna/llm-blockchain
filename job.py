@@ -2,7 +2,8 @@ import time
 from datetime import datetime
 from modules import (
     get_db_connection, get_llm_response, count_tokens, 
-    load_blockchain, save_blockchain, calculate_hash, Colors
+    load_blockchain, save_blockchain, calculate_hash, Colors,
+    get_openai_response
 )
 
 def run_batch_process():
@@ -41,7 +42,9 @@ def run_batch_process():
 
             # A. Llamar al LLM
             start_t = time.time()
-            respuesta = get_llm_response(prompt_text)
+            # respuesta = get_llm_response(prompt_text)
+            # respuesta = "respuesta"
+            respuesta = get_openai_response(prompt_text)
             tiempo = round(time.time() - start_t, 2)
 
             if respuesta:

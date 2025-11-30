@@ -1,0 +1,33 @@
+{
+    "blockchain": [
+        {
+            "hash_anterior": "0",
+            "prompts": [],
+            "timestamp": "2025-11-29 21:26:24.646914",
+            "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+            "hash_anterior": "0000000000000000000000000000000000000000000000000000000000000000",
+            "timestamp": "2025-11-29 21:26:24.647875",
+            "prompts": [
+                {
+                    "usuario": 1,
+                    "prompt": "dime cual es la capital de alemania",
+                    "respuesta": "La capital de Alemania es Berl\u00edn....",
+                    "tokens_gastados": 19,
+                    "balance_restante": 9962,
+                    "job_id": 7
+                },
+                {
+                    "usuario": 1,
+                    "prompt": "dime cual es la capital de Jap\u00f3n",
+                    "respuesta": "La capital de Jap\u00f3n es Tokio....",
+                    "tokens_gastados": 20,
+                    "balance_restante": 9942,
+                    "job_id": 8
+                }
+            ],
+            "hash": "c2e50f76c316fb16c118208c5ed968cfb599ebba0f8df33e6a07dd94d35f4656"
+        }
+    ]
+}
