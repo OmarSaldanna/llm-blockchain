@@ -28,6 +28,29 @@
                 }
             ],
             "hash": "c2e50f76c316fb16c118208c5ed968cfb599ebba0f8df33e6a07dd94d35f4656"
+        },
+        {
+            "hash_anterior": "c2e50f76c316fb16c118208c5ed968cfb599ebba0f8df33e6a07dd94d35f4656",
+            "timestamp": "2025-11-29 21:29:20.721708",
+            "prompts": [
+                {
+                    "usuario": 1,
+                    "prompt": "p",
+                    "respuesta": "respuesta...",
+                    "tokens_gastados": 2,
+                    "balance_restante": 9940,
+                    "job_id": 9
+                },
+                {
+                    "usuario": 1,
+                    "prompt": "j",
+                    "respuesta": "respuesta...",
+                    "tokens_gastados": 2,
+                    "balance_restante": 9938,
+                    "job_id": 10
+                }
+            ],
+            "hash": "c37e9d3147d24bdbc4e58fbce4f9d019cc87f82243562212b4f66b7008e04988"
         }
     ]
 }
